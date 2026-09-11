@@ -1,0 +1,26 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Test plugin
+        run: python -m unittest discover -s plugins/context-tree/tests -p 'test_*.py' -v
+      - name: Test sidecar
+        run: python -m unittest discover -s sidecar -p 'test_*.py' -v
+      - name: Compile Python
+        run: python -m compileall -q plugins/context-tree/scripts sidecar

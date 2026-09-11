@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./scripts/context_tree.py hook session-start",
+            "commandWindows": "python .\\scripts\\context_tree.py hook session-start",
+            "statusMessage": "Checking Context Tree topics",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./scripts/context_tree.py hook prompt",
+            "commandWindows": "python .\\scripts\\context_tree.py hook prompt",
+            "statusMessage": "Matching the active topic",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./scripts/context_tree.py hook stop",
+            "commandWindows": "python .\\scripts\\context_tree.py hook stop",
+            "statusMessage": "Updating Context Tree",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Context Tree"
+  short_description: "Keep compact, durable context across tasks"
+  default_prompt: "Route this task automatically, or open topic settings when I ask."

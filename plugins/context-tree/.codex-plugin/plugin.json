@@ -1,0 +1,29 @@
+{
+  "name": "context-tree",
+  "version": "0.7.1+codex.20260816110222",
+  "description": "Durable, compact context trees and handoffs across Codex tasks",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "apps": "./.app.json",
+  "interface": {
+    "displayName": "Context Tree",
+    "shortDescription": "Continue long-running work across fresh tasks.",
+    "longDescription": "Builds compact topic memory across tasks and shows isolated server-recorded context usage for each Codex window, with local estimates when no API key is configured.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Context",
+      "Interactive",
+      "Automation",
+      "Local storage"
+    ],
+    "defaultPrompt": [
+      "Continue my most relevant Context Tree topic.",
+      "Continue from the current Context Tree handoff.",
+      "Create a compact handoff for this task."
+    ]
+  }
+}

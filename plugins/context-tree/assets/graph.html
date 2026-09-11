@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Context Tree Graph</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f7f6; --surface: #fff; --ink: #18201d; --muted: #66716c;
+      --line: #d8dfdc; --accent: #187052; --accent-soft: #e2f1eb;
+      --amber: #9a5b09; --amber-soft: #fff0d8; --blue: #17699a; --red: #aa463d;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: var(--bg); color: var(--ink); font: 14px/1.45 "Segoe UI", "Microsoft YaHei UI", sans-serif; letter-spacing: 0; }
+    button, input, select { font: inherit; letter-spacing: 0; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .app { display: grid; grid-template-rows: 58px auto minmax(0, 1fr); height: 100%; }
+    header { display: flex; align-items: center; gap: 12px; padding: 0 18px; background: var(--surface); border-bottom: 1px solid var(--line); }
+    .back { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 21px; width: 34px; height: 34px; }
+    .title { min-width: 0; }
+    h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; line-height: 1.2; }
+    .meta { color: var(--muted); font-size: 12px; }
+    .spacer { flex: 1; }
+    .search { width: min(260px, 28vw); height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+    .icon-button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; font-size: 18px; }
+    .view-modes { display:flex; height:34px; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+    .view-modes button { min-width:54px; padding:0 9px; border:0; border-right:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; }
+    .view-modes button:last-child { border-right:0; }
+    .view-modes button.active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+    .branches { display:flex; gap:7px; overflow:auto; padding:7px 18px; background:var(--surface); border-bottom:1px solid var(--line); }
+    .branch { flex:0 0 auto; height:32px; padding:0 10px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--muted); cursor:pointer; }
+    .branch.active { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); font-weight:600; }
+    .body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
+    .canvas { position: relative; min-width: 0; overflow: hidden; background-color: var(--bg); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 20px 20px; cursor: grab; touch-action: none; }
+    .canvas.dragging { cursor: grabbing; }
+    svg { display: block; width: 100%; height: 100%; }
+    .edge { fill: none; stroke: #9ba7a2; stroke-width: 1.4; vector-effect: non-scaling-stroke; transition:opacity .15s,stroke .15s; }
+    .edge, .edge-label { pointer-events:none; }
+    .edge.cross, .edge.dependency { stroke-dasharray:6 5; }
+    .edge.dependency { stroke:#7b8792; opacity:.78; }
+    .edge.focus { stroke:var(--accent); stroke-width:2.4; }
+    .edge.dim { opacity:.12; }
+    .edge-label { fill: var(--muted); font-size: 10px; text-anchor: middle; }
+    .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; rx: 6; vector-effect: non-scaling-stroke; }
+    .node.active rect { stroke: var(--accent); }
+    .node.pending rect { stroke: var(--amber); stroke-dasharray: 5 3; }
+    .node.inactive { opacity: .48; }
+    .node.match rect { stroke: var(--blue); stroke-width: 3; }
+    .node.selected rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 3; }
+    .node.focus rect { stroke:var(--accent); stroke-width:2.2; }
+    .node.dim { opacity:.14; }
+    .node.frontier rect { fill:var(--accent-soft); }
+    .node.start rect { stroke:var(--blue); }
+    .node text { pointer-events: none; fill: var(--ink); font-size: 12px; }
+    .node .kind { fill: var(--muted); font-size: 9px; text-transform: uppercase; }
+    .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
+    .empty[hidden] { display: none; }
+    .lane { fill:color-mix(in srgb,var(--surface) 72%,transparent); stroke:var(--line); stroke-width:1; rx:7; vector-effect:non-scaling-stroke; }
+    .lane.focus { stroke:var(--accent); stroke-width:2; }
+    .lane.dim { opacity:.16; }
+    .lane-title { fill:var(--muted); font-size:12px; font-weight:600; }
+    .tree-root rect, .subtopic-node rect { fill:var(--surface); stroke:var(--line); stroke-width:1.7; rx:6; vector-effect:non-scaling-stroke; }
+    .tree-root rect { fill:var(--accent); stroke:var(--accent); }
+    .tree-root text { fill:#fff; font-size:13px; font-weight:600; pointer-events:none; }
+    .subtopic-node { cursor:pointer; }
+    .subtopic-node rect { fill:var(--surface); }
+    .subtopic-node:hover rect, .subtopic-node.selected rect { fill:var(--accent-soft); stroke:var(--accent); stroke-width:2.5; }
+    .subtopic-node text { fill:var(--ink); font-size:12px; pointer-events:none; }
+    .subtopic-node .count { fill:var(--muted); font-size:10px; }
+    .workstream-node { cursor:pointer; }
+    .workstream-node rect { fill:var(--amber-soft); stroke:var(--amber); stroke-width:1.5; rx:6; vector-effect:non-scaling-stroke; }
+    .workstream-node:hover rect, .workstream-node.selected rect { stroke-width:2.7; }
+    .workstream-node text { fill:var(--ink); font-size:12px; pointer-events:none; }
+    .workstream-node .count { fill:var(--muted); font-size:10px; }
+    .date-rule { stroke:var(--line); stroke-width:1; stroke-dasharray:3 5; vector-effect:non-scaling-stroke; pointer-events:none; }
+    .date-label { fill:var(--muted); font-size:10px; }
+    aside { overflow: auto; padding: 18px; background: var(--surface); border-left: 1px solid var(--line); }
+    aside h2 { margin: 0 0 14px; font-size: 15px; }
+    .status { display: inline-block; margin-bottom: 12px; padding: 3px 7px; border-radius: 4px; color: var(--accent); background: var(--accent-soft); font-size: 11px; }
+    .detail-label { margin-top: 14px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+    .detail-value { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .handoff-section { margin-top:8px; border-top:1px solid var(--line); }
+    .handoff-section details { border-bottom:1px solid var(--line); }
+    .handoff-section summary { padding:10px 2px; cursor:pointer; color:var(--ink); font-weight:600; }
+    .handoff-section p { margin:0; padding:0 2px 12px; color:var(--muted); white-space:pre-wrap; overflow-wrap:anywhere; }
+    .turn-list { margin: 18px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .turn-list li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .turn-list small { color: var(--muted); }
+    .detail-actions { display:grid; grid-template-columns:1fr auto; gap:7px; margin-top:16px; }
+    .detail-actions[hidden] { display:none; }
+    .detail-actions button { min-height:34px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); cursor:pointer; }
+    .detail-actions .primary { border-color:var(--accent); background:var(--accent); color:#fff; }
+    @media (max-width: 760px) {
+      header { gap: 6px; padding: 0 8px; }
+      .back { width: 30px; }
+      .title { flex: 1; }
+      .spacer { display: none; }
+      .search { display: none; }
+      .view-modes button { min-width:42px; padding:0 6px; }
+      .body { grid-template-columns: 1fr; }
+      aside { position: absolute; right: 0; bottom: 0; left: 0; z-index: 3; max-height: 42%; border: 1px solid var(--line); border-radius: 7px 7px 0 0; transform: translateY(calc(100% - 44px)); transition: transform .18s ease; }
+      aside.open { transform: translateY(0); }
+      .icon-button { width: 32px; flex: 0 0 32px; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #141816; --surface: #1d2320; --ink: #edf2ef; --muted: #a2aca7; --line: #39423e; --accent: #62bc96; --accent-soft: #203c31; --amber-soft: #3b2d17; }
+    }
+    @media (prefers-reduced-motion: reduce) { aside { transition: none; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <button class="back" type="button" title="返回主题列表" aria-label="返回主题列表" onclick="location.href='/'">&#8592;</button>
+      <div class="title"><h1 id="title">记忆树</h1><div id="meta" class="meta">加载中</div></div>
+      <div class="spacer"></div>
+      <input id="search" class="search" type="search" placeholder="搜索节点" aria-label="搜索节点">
+      <div id="view-modes" class="view-modes" aria-label="图谱视图"><button type="button" data-mode="main" class="active">主干</button><button type="button" data-mode="all">全部</button><button type="button" data-mode="dependencies">依赖</button></div>
+      <button id="zoom-out" class="icon-button" type="button" title="缩小" aria-label="缩小">&#8722;</button>
+      <button id="zoom-in" class="icon-button" type="button" title="放大" aria-label="放大">+</button>
+      <button id="fit" class="icon-button" type="button" title="适合窗口" aria-label="适合窗口">&#9633;</button>
+      <button id="current" class="icon-button" type="button" title="回到当前节点" aria-label="回到当前节点">&#9678;</button>
+    </header>
+    <nav id="branches" class="branches" aria-label="子主题"></nav>
+    <div class="body">
+      <main id="canvas" class="canvas">
+        <svg id="graph" role="img" aria-label="主题记忆树"><g id="viewport"></g></svg>
+        <div id="empty" class="empty" hidden>这个主题还没有整理后的节点</div>
+      </main>
+      <aside id="details" aria-live="polite">
+        <h2 id="detail-title">选择一个节点</h2>
+        <div id="detail-content" class="meta">点击节点查看摘要、状态和时间。</div>
+        <div id="detail-actions" class="detail-actions" hidden><button id="resume" class="primary" type="button">下一新会话继续</button><button id="copy" type="button">复制</button></div>
+        <ul id="turn-list" class="turn-list"></ul>
+      </aside>
+    </div>
+  </div>
+  <script>
+    const TOKEN = "__CONTEXT_TREE_TOKEN__";
+    const NS = "http://www.w3.org/2000/svg";
+    const params = new URLSearchParams(location.search);
+    const topicId = params.get("topic") || "";
+    const canvas = document.getElementById("canvas");
+    const viewport = document.getElementById("viewport");
+    let data = null;
+    let layout = new Map();
+    let transform = { x: 60, y: 60, scale: 1 };
+    let drag = null;
+    let selectedBranch = "";
+    let selectedWorkstream = "";
+    let selectedNode = "";
+    let viewMode = "main";
+    let sceneBoxes = [];
+
+    function subtopics() { return data?.subtopics || []; }
+    function selectedSubtopic() { return subtopics().find((item) => item.id === selectedBranch); }
+    function activeWorkstream() { return selectedSubtopic()?.workstreams?.find((item) => item.id === selectedWorkstream); }
+    function sameIds(left = [], right = []) {
+      const sortedLeft = [...left].sort(), sortedRight = [...right].sort();
+      return sortedLeft.length === sortedRight.length && sortedLeft.every((id, index) => id === sortedRight[index]);
+    }
+    function isRedundantWorkstream(subtopic, workstream) {
+      if (!subtopic || !workstream || (subtopic.workstreams || []).length !== 1) return false;
+      const clean = (value) => String(value || "").trim().toLocaleLowerCase();
+      return clean(subtopic.title) === clean(workstream.title) &&
+        sameIds(subtopic.branch_ids || [], workstream.branch_ids || []);
+    }
+    function displayNodes() { return data?.display_nodes || data?.nodes || []; }
+    function displayEdges() { return data?.display_edges || data?.edges || []; }
+    function branchInFocus(branchId) {
+      const subtopic = selectedSubtopic();
+      return !subtopic || (subtopic.branch_ids || []).includes(branchId);
+    }
+
+    function svg(name, attrs = {}) {
+      const node = document.createElementNS(NS, name);
+      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
+      return node;
+    }
+    function applyTransform() { viewport.setAttribute("transform", `translate(${transform.x} ${transform.y}) scale(${transform.scale})`); }
+    function truncate(value, size) { value = String(value || ""); return value.length > size ? `${value.slice(0, size - 1)}…` : value; }
+    function fitText(value, maxUnits = 15) {
+      value = String(value || ""); let units = 0; let output = "";
+      for (const char of value) {
+        const width = /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 1 : .56;
+        if (units + width > maxUnits) return `${output}…`;
+        units += width; output += char;
+      }
+      return output;
+    }
+    function nodeClass(node) {
+      const classes = ["node"];
+      if (node.status === "active") classes.push("active"); else classes.push("inactive");
+      if (node.status === "pending") classes.push("pending");
+      if (selectedBranch) classes.push(branchInFocus(node.branch_id) ? "focus" : "dim");
+      const branch = data?.branches?.find((item) => item.id === node.branch_id);
+      if ((node.child_node_ids || [node.id]).some((id) => branch?.frontier_node_ids?.includes(id))) classes.push("frontier");
+      const first = displayNodes().find((item) => item.workstream_id === node.workstream_id);
+      if (first?.id === node.id) classes.push("start");
+      return classes.join(" ");
+    }
+    function uniqueEdges(edges) {
+      const seen = new Set();
+      return edges.filter((edge) => {
+        const key = `${edge.from_node_id}\u0000${edge.to_node_id}\u0000${edge.relation}`;
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+    }
+    function calculateLayout(nodes, timelineEdges) {
+      const result = new Map();
+      if (!nodes.length) return result;
+      const nodeById = new Map(nodes.map((node) => [node.id, node]));
+      const order = new Map(nodes.map((node, index) => [node.id, index]));
+      const edges = uniqueEdges(timelineEdges).filter((edge) => (
+        nodeById.has(edge.from_node_id) && nodeById.has(edge.to_node_id) &&
+        edge.from_node_id !== edge.to_node_id
+      ));
+      const incoming = new Map(nodes.map((node) => [node.id, []]));
+      edges.forEach((edge) => incoming.get(edge.to_node_id).push(edge.from_node_id));
+      const primaryParent = new Map();
+      incoming.forEach((parents, child) => {
+        parents.sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0));
+        if (parents.length) primaryParent.set(child, parents[parents.length - 1]);
+      });
+      const children = new Map(nodes.map((node) => [node.id, []]));
+      primaryParent.forEach((parent, child) => children.get(parent)?.push(child));
+      children.forEach((items) => items.sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0)));
+
+      const depth = new Map(nodes.map((node) => [node.id, 0]));
+      for (let pass = 0; pass < nodes.length; pass += 1) {
+        let changed = false;
+        edges.forEach((edge) => {
+          const candidate = Math.min(nodes.length - 1, (depth.get(edge.from_node_id) || 0) + 1);
+          if (candidate > (depth.get(edge.to_node_id) || 0)) {
+            depth.set(edge.to_node_id, candidate); changed = true;
+          }
+        });
+        if (!changed) break;
+      }
+
+      let nextLeaf = 0;
+      const columns = new Map();
+      const visiting = new Set();
+      function place(id) {
+        if (columns.has(id)) return columns.get(id);
+        if (visiting.has(id)) { const slot = nextLeaf++; columns.set(id, slot); return slot; }
+        visiting.add(id);
+        const childSlots = (children.get(id) || []).map(place);
+        const slot = childSlots.length
+          ? childSlots.reduce((total, value) => total + value, 0) / childSlots.length
+          : nextLeaf++;
+        visiting.delete(id); columns.set(id, slot); return slot;
+      }
+      const roots = nodes.filter((node) => !primaryParent.has(node.id));
+      roots.forEach((node, index) => { if (index) nextLeaf += .35; place(node.id); });
+      nodes.forEach((node) => place(node.id));
+      const slots = [...columns.values()];
+      const center = (Math.min(...slots) + Math.max(...slots)) / 2;
+      nodes.forEach((node) => {
+        const level = depth.get(node.id) || 0;
+        result.set(node.id, {
+          x: 585 + ((columns.get(node.id) || 0) - center) * 230,
+          y: 180 + level * 110, width: 180, height: 58, level,
+        });
+      });
+      return result;
+    }
+    function renderGraph() {
+      viewport.replaceChildren();
+      const activeSubtopic = selectedSubtopic();
+      const workstream = activeWorkstream();
+      const hideRedundantWorkstream = isRedundantWorkstream(activeSubtopic, workstream);
+      let nodes = workstream ? displayNodes().filter((node) => node.workstream_id === workstream.id) : [];
+      if (viewMode === "main") nodes = nodes.filter((node) => node.is_mainline && node.status === "active");
+      else if (viewMode === "dependencies") nodes = nodes.filter((node) => node.status === "active");
+      const byId = new Map(nodes.map((node) => [node.id, node]));
+      const timelineEdges = uniqueEdges(displayEdges()).filter((edge) => (
+        edge.relation === "timeline_next" && byId.has(edge.from_node_id) && byId.has(edge.to_node_id)
+      ));
+      layout = calculateLayout(nodes, timelineEdges);
+      sceneBoxes = [];
+      document.getElementById("empty").hidden = Boolean(subtopics().length);
+      const marker = svg("marker", { id: "arrow", markerWidth: 8, markerHeight: 8, refX: 7, refY: 3, orient: "auto", markerUnits: "strokeWidth" });
+      marker.append(svg("path", { d: "M0,0 L0,6 L7,3 z", fill: "#9ba7a2" }));
+      const defs = svg("defs"); defs.append(marker); viewport.append(defs);
+
+      const rootBox = { x: 36, y: 30, width: 190, height: 64 };
+      sceneBoxes.push(rootBox);
+      const root = svg("g", { class: "tree-root", transform: `translate(${rootBox.x} ${rootBox.y})` });
+      root.append(svg("rect", { width: rootBox.width, height: rootBox.height }));
+      const rootTitle = svg("text", { x: 14, y: 28 }); rootTitle.textContent = fitText(data.topic.title, 15); root.append(rootTitle);
+      const rootCount = svg("text", { x: 14, y: 48 }); rootCount.textContent = `${data.nodes.length} 个节点`; root.append(rootCount); viewport.append(root);
+
+      const shownSubtopics = activeSubtopic ? [activeSubtopic] : subtopics();
+      shownSubtopics.forEach((subtopic, index) => {
+        const box = activeSubtopic
+          ? { x: 330, y: 30, width: 210, height: 64 }
+          : { x: 330 + (index % 4) * 240, y: 30 + Math.floor(index / 4) * 100, width: 210, height: 64 };
+        sceneBoxes.push(box);
+        const edgeY = rootBox.y + rootBox.height / 2, targetY = box.y + box.height / 2;
+        const midX = (rootBox.x + rootBox.width + box.x) / 2;
+        viewport.append(svg("path", { class: "edge", d: `M${rootBox.x + rootBox.width},${edgeY} C${midX},${edgeY} ${midX},${targetY} ${box.x},${targetY}`, "marker-end": "url(#arrow)" }));
+        const group = svg("g", { class: `subtopic-node ${subtopic.id === selectedBranch ? "selected" : ""}`, transform: `translate(${box.x} ${box.y})`, tabindex: 0, role: "button", "aria-label": subtopic.title });
+        group.append(svg("rect", { width: box.width, height: box.height }));
+        const title = svg("text", { x: 13, y: 27 }); title.textContent = fitText(subtopic.title, 16); group.append(title);
+        const count = svg("text", { class: "count", x: 13, y: 48 }); count.textContent = `${subtopic.node_count || 0} 个节点 · 点击${activeSubtopic ? "收起" : "展开"}`; group.append(count);
+        group.addEventListener("click", () => selectBranch(subtopic.id));
+        group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectBranch(subtopic.id); });
+        viewport.append(group);
+      });
+
+      if (activeSubtopic) {
+        const streams = hideRedundantWorkstream ? [] : (workstream ? [workstream] : (activeSubtopic.workstreams || []));
+        streams.forEach((stream, index) => {
+          const box = workstream
+            ? { x: 590, y: 30, width: 220, height: 64 }
+            : { x: 590 + (index % 3) * 245, y: 30 + Math.floor(index / 3) * 100, width: 220, height: 64 };
+          sceneBoxes.push(box);
+          const source = { x: 330, y: 30, width: 210, height: 64 };
+          const x1 = source.x + source.width, y1 = source.y + source.height / 2, x2 = box.x, y2 = box.y + box.height / 2, mid = (x1 + x2) / 2;
+          viewport.append(svg("path", { class: "edge", d: `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`, "marker-end": "url(#arrow)" }));
+          const group = svg("g", { class: `workstream-node ${stream.id === selectedWorkstream ? "selected" : ""}`, transform: `translate(${box.x} ${box.y})`, tabindex: 0, role: "button", "aria-label": stream.title });
+          group.append(svg("rect", { width: box.width, height: box.height }));
+          const title = svg("text", { x: 13, y: 27 }); title.textContent = fitText(stream.title, 17); group.append(title);
+          const count = svg("text", { class: "count", x: 13, y: 48 }); count.textContent = `${stream.node_count || 0} 个原始节点 · 点击${workstream ? "收起" : "展开"}`; group.append(count);
+          group.addEventListener("click", () => selectWorkstream(stream.id));
+          group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectWorkstream(stream.id); });
+          viewport.append(group);
+        });
+      }
+
+      const visibleEdges = uniqueEdges(displayEdges()).filter((edge) => (
+        byId.has(edge.from_node_id) && byId.has(edge.to_node_id) &&
+        (viewMode === "dependencies" ? edge.relation !== "timeline_next" : edge.relation === "timeline_next")
+      ));
+      const layoutBoxes = [...layout.values()];
+      const graphLeft = layoutBoxes.length ? Math.min(...layoutBoxes.map((box) => box.x)) : 360;
+      const graphRight = layoutBoxes.length ? Math.max(...layoutBoxes.map((box) => box.x + box.width)) : 1050;
+      const dates = new Map();
+      nodes.forEach((node) => {
+        const box = layout.get(node.id), date = String(node.occurred_at || "").slice(0, 10);
+        if (box && date && !dates.has(date)) dates.set(date, box.y - 13);
+      });
+      dates.forEach((y, date) => {
+        viewport.append(svg("line", { class: "date-rule", x1: graphLeft - 42, y1: y, x2: graphRight + 42, y2: y }));
+        const label = svg("text", { class: "date-label", x: graphLeft - 38, y: y - 4 }); label.textContent = date; viewport.append(label);
+      });
+      visibleEdges.forEach((edge, edgeIndex) => {
+        const from = layout.get(edge.from_node_id), to = layout.get(edge.to_node_id);
+        if (!from || !to) return;
+        const fromNode = byId.get(edge.from_node_id), toNode = byId.get(edge.to_node_id);
+        const cross = fromNode?.branch_id !== toNode?.branch_id;
+        const dependency = edge.relation !== "timeline_next";
+        const edgeClasses = ["edge", cross ? "cross" : "", dependency ? "dependency" : ""];
+        if (dependency) {
+          const fromIsLeft = from.x <= to.x;
+          const x1 = fromIsLeft ? from.x + from.width : from.x;
+          const x2 = fromIsLeft ? to.x + to.width : to.x;
+          const y1 = from.y + from.height / 2, y2 = to.y + to.height / 2;
+          const laneX = fromIsLeft
+            ? graphRight + 45 + (edgeIndex % 4) * 22
+            : graphLeft - 45 - (edgeIndex % 4) * 22;
+          viewport.append(svg("path", { class: edgeClasses.join(" "), d: `M${x1},${y1} C${laneX},${y1} ${laneX},${y2} ${x2},${y2}`, "marker-end": "url(#arrow)" }));
+          const label = svg("text", { class: "edge-label", x: laneX, y: (y1 + y2) / 2 - 5 });
+          label.textContent = truncate(edge.relation, 18); viewport.append(label);
+        } else {
+          const x1 = from.x + from.width / 2, y1 = from.y + from.height;
+          const x2 = to.x + to.width / 2, y2 = to.y, mid = (y1 + y2) / 2;
+          viewport.append(svg("path", { class: edgeClasses.join(" "), d: `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`, "marker-end": "url(#arrow)" }));
+        }
+      });
+      if (workstream && nodes.length) {
+        const incoming = new Set(timelineEdges.map((edge) => edge.to_node_id));
+        const starts = nodes.filter((node) => !incoming.has(node.id)).slice(0, 6);
+        const header = hideRedundantWorkstream
+          ? { x: 330, y: 30, width: 210, height: 64 }
+          : { x: 590, y: 30, width: 220, height: 64 };
+        starts.forEach((node) => {
+          const to = layout.get(node.id); if (!to) return;
+          const x1 = header.x + header.width / 2, y1 = header.y + header.height, x2 = to.x + to.width / 2, y2 = to.y, mid = (y1 + y2) / 2;
+          viewport.append(svg("path", { class: "edge", d: `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`, "marker-end": "url(#arrow)" }));
+        });
+      }
+      nodes.forEach((node) => {
+        const box = layout.get(node.id);
+        sceneBoxes.push(box);
+        const group = svg("g", { class: nodeClass(node), transform: `translate(${box.x} ${box.y})`, tabindex: 0, role: "button", "aria-label": node.label });
+        group.dataset.node = node.id;
+        group.dataset.branch = node.branch_id;
+        group.append(svg("rect", { width: box.width, height: box.height }));
+        const branch = data.branches.find((item) => item.id === node.branch_id);
+        const childIds = node.child_node_ids || [node.id];
+        const isFrontier = childIds.some((id) => branch?.frontier_node_ids?.includes(id));
+        const isStart = nodes[0]?.id === node.id;
+        const markerText = isFrontier ? "前沿 · " : isStart ? "起点 · " : "";
+        const kind = svg("text", { class: "kind", x: 12, y: 18 }); kind.textContent = `${markerText}${node.type} · ${node.status}`; group.append(kind);
+        const first = svg("text", { x: 12, y: 41 }); first.textContent = fitText(node.label, 15); group.append(first);
+        group.addEventListener("click", () => selectNode(node.id));
+        group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectNode(node.id); });
+        viewport.append(group);
+      });
+      if (selectedNode) document.querySelector(`[data-node="${CSS.escape(selectedNode)}"]`)?.classList.add("selected");
+      applyTransform(); fit();
+    }
+    function renderBranches() {
+      const bar = document.getElementById("branches");
+      bar.replaceChildren();
+      subtopics().forEach((branch) => {
+        const button = document.createElement("button"); button.type = "button";
+        button.className = `branch ${branch.id === selectedBranch ? "active" : ""}`;
+        button.textContent = `${branch.title} · ${branch.node_count || 0}`;
+        button.onclick = () => selectBranch(branch.id); bar.append(button);
+      });
+    }
+    function selectBranch(id) {
+      selectedBranch = selectedBranch === id ? "" : id; selectedWorkstream = ""; selectedNode = "";
+      const selected = selectedSubtopic();
+      const onlyStream = selected?.workstreams?.length === 1 ? selected.workstreams[0] : null;
+      if (isRedundantWorkstream(selected, onlyStream)) selectedWorkstream = onlyStream.id;
+      renderBranches(); renderGraph();
+      const branch = selectedSubtopic();
+      if (!branch) return;
+      document.getElementById("detail-title").textContent = branch.title;
+      document.getElementById("detail-content").innerHTML = `<div class="detail-label">当前状态</div><p class="detail-value"></p><div class="detail-label">下一步</div><p class="detail-value"></p>`;
+      const values = document.querySelectorAll("#detail-content .detail-value");
+      values[0].textContent = branch.current_state || "尚无状态快照";
+      values[1].textContent = (branch.next_actions || []).join("\n") || "尚无下一步";
+      document.getElementById("detail-actions").hidden = true;
+      const turns = data.turns.filter((turn) => (branch.branch_ids || []).includes(turn.branch_id)).slice(-8).reverse();
+      document.getElementById("turn-list").innerHTML = turns.map((turn) => `<li><small>#${turn.topic_sequence || "?"} · ${truncate(turn.occurred_at, 19)}</small><div>${truncate(turn.user_intent, 72)}</div></li>`).join("");
+    }
+    function selectWorkstream(id) {
+      selectedWorkstream = selectedWorkstream === id ? "" : id; selectedNode = "";
+      renderGraph();
+      const stream = activeWorkstream();
+      if (!stream) return;
+      document.getElementById("detail-title").textContent = stream.title;
+      document.getElementById("detail-content").innerHTML = `<div class="detail-label">工作流</div><p class="detail-value">${stream.node_count || 0} 个原始节点；选择主干、全部或依赖视图查看。</p>`;
+      document.getElementById("detail-actions").hidden = true;
+    }
+    function continuationText(node) {
+      const branch = subtopics().find((item) => (item.branch_ids || []).includes(node.branch_id)) || {};
+      const turn = data.turns.find((item) => item.id === node.created_turn_id) || {};
+      const handoff = node.handoff || {};
+      return [`Context Tree 续接指向`, `主题：${data.topic.title}`, `主题 ID：${data.topic.id}`, `子主题：${branch.title || node.branch_id}`, `子主题 ID：${branch.id || node.branch_id}`, `前沿节点：${node.label}`, `节点 ID：${node.id}`, `目标：${handoff.objective || ""}`, `当前进度：${handoff.current_state || ""}`, `采用方法：${handoff.method || ""}`, `采用理由：${handoff.rationale || ""}`, `已得结果：${handoff.results || ""}`, `失败尝试：${handoff.failed_attempts || ""}`, `环境与资源：${handoff.environment_resources || ""}`, `下一步：${handoff.next_actions || turn.next_step || ""}`, `详细整理：${node.capsule || ""}`, `精确信息：${JSON.stringify(node.exact_data || {})}`, `来源 Turn：${node.created_turn_id || ""}`, `发生时间：${node.occurred_at || ""}`].join("\n");
+    }
+    async function api(path, options = {}) {
+      const response = await fetch(path, { ...options, headers: { "X-Context-Tree-Token": TOKEN, "Content-Type": "application/json", ...(options.headers || {}) } });
+      const value = await response.json(); if (!response.ok) throw new Error(value.error || "操作失败"); return value;
+    }
+    function selectNode(id) {
+      const node = displayNodes().find((item) => item.id === id);
+      if (!node) return;
+      selectedNode = id;
+      const subtopic = subtopics().find((item) => (item.branch_ids || []).includes(node.branch_id));
+      if (subtopic && selectedBranch !== subtopic.id) { selectedBranch = subtopic.id; renderBranches(); renderGraph(); }
+      selectedWorkstream = node.workstream_id || selectedWorkstream;
+      document.querySelectorAll(".node").forEach((item) => item.classList.toggle("selected", item.dataset.node === id));
+      document.getElementById("detail-title").textContent = node.label;
+      document.getElementById("detail-content").innerHTML = "";
+      const content = document.getElementById("detail-content");
+      const branch = subtopic;
+      const handoff = node.handoff || {};
+      [["子主题", branch?.title], ["工作流", activeWorkstream()?.title], ["状态", node.status], ["类型", node.is_episode ? `进展节点 · 合并 ${node.child_node_ids?.length || 1} 个原始节点` : node.type], ["发生时间", node.occurred_at]].forEach(([label, value]) => {
+        if (!value) return;
+        const a = document.createElement("div"); a.className = "detail-label"; a.textContent = label;
+        const b = document.createElement("p"); b.className = "detail-value"; b.textContent = value;
+        content.append(a, b);
+      });
+      const sections = document.createElement("div"); sections.className = "handoff-section";
+      [["目标", handoff.objective, false], ["现在做到哪里", handoff.current_state, true], ["采用了什么方法", handoff.method, false], ["为什么采用这个方法", handoff.rationale, false], ["已经得到什么结果", handoff.results, true], ["失败尝试，不要再试", handoff.failed_attempts, false], ["当前环境和可用资源", handoff.environment_resources, false], ["下一步准备做什么", handoff.next_actions, true], ["详细整理", node.capsule, false], ["精确信息", Object.keys(node.exact_data || {}).length ? JSON.stringify(node.exact_data, null, 2) : "", false]].forEach(([label, value, open]) => {
+        if (!value) return;
+        const details = document.createElement("details"); details.open = Boolean(open);
+        const summary = document.createElement("summary"); summary.textContent = label;
+        const body = document.createElement("p"); body.textContent = value;
+        details.append(summary, body); sections.append(details);
+      });
+      content.append(sections);
+      document.getElementById("detail-actions").hidden = false;
+      document.getElementById("details").classList.add("open");
+    }
+    function fit() {
+      const boxes = sceneBoxes.filter(Boolean);
+      if (!boxes.length) return;
+      const minX = Math.min(...boxes.map((box) => box.x));
+      const minY = Math.min(...boxes.map((box) => box.y));
+      const maxX = Math.max(...boxes.map((box) => box.x + box.width));
+      const maxY = Math.max(...boxes.map((box) => box.y + box.height));
+      const rect = canvas.getBoundingClientRect();
+      transform.scale = Math.min(1.25, Math.max(.2, Math.min((rect.width - 80) / Math.max(1, maxX - minX), (rect.height - 80) / Math.max(1, maxY - minY))));
+      transform.x = 40 - minX * transform.scale;
+      transform.y = 40 - minY * transform.scale; applyTransform();
+    }
+    function zoom(factor, cx = canvas.clientWidth / 2, cy = canvas.clientHeight / 2) {
+      const previous = transform.scale;
+      const next = Math.min(2.5, Math.max(.2, previous * factor));
+      transform.x = cx - ((cx - transform.x) / previous) * next;
+      transform.y = cy - ((cy - transform.y) / previous) * next;
+      transform.scale = next; applyTransform();
+    }
+    function focusCurrent() {
+      const stream = activeWorkstream();
+      if (!stream) return;
+      const candidates = displayNodes().filter((node) => node.workstream_id === stream.id && node.status === "active");
+      const node = candidates.sort((a, b) => String(b.occurred_at || "").localeCompare(String(a.occurred_at || "")))[0];
+      if (!node) return;
+      if (!layout.has(node.id)) { viewMode = "all"; document.querySelectorAll("#view-modes button").forEach((button) => button.classList.toggle("active", button.dataset.mode === "all")); renderGraph(); }
+      const box = layout.get(node.id); if (!box) return;
+      transform.scale = 1;
+      transform.x = canvas.clientWidth / 2 - (box.x + box.width / 2);
+      transform.y = 90 - box.y; applyTransform(); selectNode(node.id);
+    }
+    canvas.addEventListener("wheel", (event) => { event.preventDefault(); if (event.ctrlKey) { const rect = canvas.getBoundingClientRect(); zoom(event.deltaY < 0 ? 1.12 : .89, event.clientX - rect.left, event.clientY - rect.top); } else { transform.x -= event.deltaX; transform.y -= event.deltaY; applyTransform(); } }, { passive: false });
+    canvas.addEventListener("auxclick", (event) => { if (event.button === 1) event.preventDefault(); });
+    canvas.addEventListener("pointerdown", (event) => { if (event.button !== 0 && event.button !== 1) return; if (event.target.closest(".node, .subtopic-node, .workstream-node")) return; event.preventDefault(); drag = { x: event.clientX, y: event.clientY, tx: transform.x, ty: transform.y }; canvas.setPointerCapture(event.pointerId); canvas.classList.add("dragging"); });
+    canvas.addEventListener("pointermove", (event) => { if (!drag) return; transform.x = drag.tx + event.clientX - drag.x; transform.y = drag.ty + event.clientY - drag.y; applyTransform(); });
+    canvas.addEventListener("pointerup", () => { drag = null; canvas.classList.remove("dragging"); });
+    document.getElementById("zoom-in").onclick = () => zoom(1.2);
+    document.getElementById("zoom-out").onclick = () => zoom(.8);
+    document.getElementById("fit").onclick = fit;
+    document.getElementById("current").onclick = focusCurrent;
+    document.querySelectorAll("#view-modes button").forEach((button) => button.onclick = () => {
+      viewMode = button.dataset.mode || "main"; selectedNode = "";
+      document.querySelectorAll("#view-modes button").forEach((item) => item.classList.toggle("active", item === button));
+      renderGraph();
+    });
+    document.getElementById("resume").onclick = async () => {
+      const node = displayNodes().find((item) => item.id === selectedNode); if (!node) return;
+      const button = document.getElementById("resume");
+      try {
+        await api("/api/resume", { method: "POST", body: JSON.stringify({ topic_id: data.topic.id, branch_id: node.branch_id, node_id: node.resume_node_id || node.id, mode: "once" }) });
+        button.textContent = "已指向下一新会话";
+      } catch (error) { button.textContent = error.message; }
+    };
+    document.getElementById("copy").onclick = async () => {
+      const node = displayNodes().find((item) => item.id === selectedNode); if (!node) return;
+      try { await navigator.clipboard.writeText(continuationText(node)); document.getElementById("copy").textContent = "已复制"; }
+      catch { window.prompt("复制以下续接信息", continuationText(node)); }
+    };
+    document.getElementById("search").addEventListener("input", (event) => {
+      const query = event.target.value.trim().toLowerCase();
+      document.querySelectorAll(".node").forEach((item) => {
+        const node = displayNodes().find((candidate) => candidate.id === item.dataset.node);
+        if (!node) return;
+        item.classList.toggle("match", Boolean(query && `${node.label} ${node.capsule} ${node.type}`.toLowerCase().includes(query)));
+      });
+    });
+    fetch(`/api/graph?topic=${encodeURIComponent(topicId)}`, { headers: { "X-Context-Tree-Token": TOKEN } })
+      .then(async (response) => { const value = await response.json(); if (!response.ok) throw new Error(value.error || "加载失败"); return value; })
+      .then((value) => {
+        data = value; document.getElementById("title").textContent = data.topic.title;
+        document.getElementById("meta").textContent = `${data.subtopics?.length || 0} 个子主题 · ${data.nodes.length} 个节点 · ${data.edges.length} 条关系 · ${data.turns.length} 个 Turn`;
+        const resumeBranch = String(data.resume_pointer?.topic_id === data.topic.id ? data.resume_pointer.branch_id || "" : "");
+        selectedBranch = subtopics().find((item) => (item.branch_ids || []).includes(resumeBranch))?.id || "";
+        selectedWorkstream = selectedSubtopic()?.workstreams?.find((item) => (item.branch_ids || []).includes(resumeBranch))?.id || "";
+        renderBranches();
+        document.getElementById("turn-list").innerHTML = data.turns.slice(-8).reverse().map((turn) => `<li><small>#${turn.topic_sequence || "?"} · ${turn.consolidation_status}</small><div>${truncate(turn.user_intent, 72)}</div></li>`).join("");
+        renderGraph();
+      })
+      .catch((error) => { document.getElementById("empty").hidden = false; document.getElementById("empty").textContent = error.message; });
+  </script>
+</body>
+</html>

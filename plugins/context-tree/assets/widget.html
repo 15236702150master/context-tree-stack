@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme:light dark; --surface:#fff; --ink:#1e2622; --muted:#66716b; --line:#d9e1dd; --green:#197052; --green-soft:#e7f3ed; --amber:#9a5b08; --amber-soft:#fff1d9; --red:#b23b35; --red-soft:#fbe8e6; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-width:44px; background:transparent; color:var(--ink); font:13px/1.4 "Segoe UI","Microsoft YaHei UI",sans-serif; letter-spacing:0; }
+    button,input,select { font:inherit; letter-spacing:0; }
+    button:focus-visible,input:focus-visible,select:focus-visible { outline:2px solid #1770a4; outline-offset:2px; }
+    .root { display:flex; justify-content:flex-end; padding:3px; }
+    .trigger { position:relative; width:38px; height:38px; border:1px solid var(--green); border-radius:7px; background:var(--green); color:#fff; cursor:pointer; box-shadow:0 2px 8px rgba(20,30,26,.14); font-size:18px; }
+    .trigger.warning { border-color:var(--amber); background:var(--amber); }
+    .trigger.critical { border-color:var(--red); background:var(--red); }
+    .badge { position:absolute; top:-5px; right:-5px; display:grid; place-items:center; min-width:17px; height:17px; padding:0 4px; border:2px solid var(--surface); border-radius:9px; background:#2d3531; color:#fff; font-size:10px; }
+    .panel { width:min(350px,calc(100vw - 6px)); max-height:480px; overflow:hidden; border:1px solid var(--line); border-radius:7px; background:var(--surface); box-shadow:0 8px 28px rgba(20,30,26,.16); }
+    .panel[hidden], [hidden] { display:none!important; }
+    header { display:flex; align-items:center; gap:8px; min-height:46px; padding:7px 9px; border-bottom:1px solid var(--line); }
+    .mark { display:grid; place-items:center; width:30px; height:30px; border-radius:6px; background:var(--green-soft); color:var(--green); font-size:16px; }
+    .heading { min-width:0; flex:1; }
+    .heading strong,.heading small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .heading small { color:var(--muted); }
+    .icon { width:30px; height:30px; border:0; border-radius:5px; background:transparent; color:var(--muted); cursor:pointer; font-size:18px; }
+    .tabs { display:grid; grid-template-columns:1fr 1fr; padding:5px; border-bottom:1px solid var(--line); }
+    .tab { height:30px; border:0; border-radius:5px; background:transparent; color:var(--muted); cursor:pointer; }
+    .tab.active { background:var(--green-soft); color:var(--green); font-weight:600; }
+    .scroll { max-height:340px; overflow:auto; }
+    .mode-note { padding:7px 10px; border-bottom:1px solid var(--line); color:var(--muted); font-size:11px; }
+    .mode-note.error { color:var(--red); background:var(--red-soft); }
+    .session { padding:9px 10px; border-bottom:1px solid var(--line); cursor:pointer; }
+    .session:hover { background:color-mix(in srgb,var(--green-soft) 55%,transparent); }
+    .session-head { display:grid; grid-template-columns:9px minmax(0,1fr) auto; gap:8px; align-items:center; }
+    .state-dot { width:8px; height:8px; border-radius:50%; background:var(--green); }
+    .session.warning .state-dot { background:var(--amber); }
+    .session.critical .state-dot { background:var(--red); }
+    .session-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+    .percent { color:var(--green); font-variant-numeric:tabular-nums; }
+    .session.warning .percent { color:var(--amber); }
+    .session.critical .percent { color:var(--red); font-weight:700; }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin:7px 0 0 17px; color:var(--muted); font-size:11px; }
+    .metrics b { display:block; color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
+    .attention { margin:6px 0 0 17px; color:var(--amber); font-size:11px; font-weight:600; }
+    .cost-profile { margin:7px 0 0 17px; color:var(--muted); font-size:11px; line-height:1.5; }
+    .cost-profile strong { color:var(--ink); font-weight:600; }
+    .cost-line { display:block; }
+    .session.critical .attention { color:var(--red); }
+    .requests { margin:7px 0 0 17px; padding-top:5px; border-top:1px dashed var(--line); }
+    .request { display:flex; gap:7px; justify-content:space-between; padding:3px 0; color:var(--muted); font-size:11px; }
+    .request span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .epoch { padding:6px 0; border-bottom:1px solid var(--line); color:var(--muted); font-size:11px; }
+    .epoch:last-child { border-bottom:0; }
+    .epoch-main { display:flex; justify-content:space-between; gap:8px; color:var(--ink); }
+    .epoch-main strong { font-weight:600; }
+    .epoch-meta { margin-top:2px; overflow-wrap:anywhere; }
+    .toolbar { display:flex; gap:6px; padding:8px 10px; border-bottom:1px solid var(--line); }
+    .search { min-width:0; flex:1; height:31px; padding:0 9px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); }
+    .small { min-width:31px; height:31px; padding:0 8px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); cursor:pointer; }
+    .create { display:flex; gap:6px; padding:8px 10px; border-bottom:1px solid var(--line); }
+    .create input { min-width:0; flex:1; height:31px; padding:0 9px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); }
+    .topic { display:grid; grid-template-columns:9px minmax(0,1fr) auto auto; gap:8px; align-items:center; min-height:52px; padding:7px 10px; border-bottom:1px solid var(--line); cursor:pointer; }
+    .topic.selected { background:var(--green-soft); }
+    .topic-text { min-width:0; }
+    .topic-text strong,.topic-text small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .topic-text small { color:var(--muted); }
+    .pending { min-width:22px; padding:2px 5px; border-radius:4px; background:var(--amber-soft); color:var(--amber); text-align:center; font-size:11px; }
+    .empty { padding:28px 14px; color:var(--muted); text-align:center; }
+    footer { display:flex; align-items:center; gap:8px; padding:7px 10px; color:var(--muted); font-size:11px; }
+    footer .spacer { flex:1; }
+    footer select { height:27px; border:1px solid var(--line); border-radius:5px; background:var(--surface); color:var(--ink); }
+    @media (prefers-color-scheme:dark) { :root { --surface:#1e2421; --ink:#edf2ef; --muted:#a5aea9; --line:#3c4541; --green:#63bd97; --green-soft:#213d32; --amber-soft:#3b2c16; --red:#e16b64; --red-soft:#402624; } }
+  </style>
+</head>
+<body>
+  <div class="root">
+    <button id="trigger" class="trigger" type="button" title="Context Tree" aria-label="展开 Context Tree" aria-expanded="false">&#9783;<span id="badge" class="badge" hidden></span></button>
+    <section id="panel" class="panel" hidden aria-label="Context Tree 面板">
+      <header><span class="mark">&#9783;</span><div class="heading"><strong id="current">Context Tree</strong><small id="sync">本地记忆</small></div><button id="settings" class="icon" type="button" title="设置" aria-label="打开设置">&#9881;</button><button id="close" class="icon" type="button" title="收起" aria-label="收起">&#215;</button></header>
+      <nav class="tabs"><button class="tab active" data-tab="usage" type="button">会话</button><button class="tab" data-tab="topics" type="button">主题</button></nav>
+      <section id="usage-view"><div id="usage-note" class="mode-note"></div><div id="sessions" class="scroll" aria-live="polite"></div></section>
+      <section id="topics-view" hidden>
+        <div class="toolbar"><input id="search" class="search" type="search" placeholder="搜索主题" aria-label="搜索主题"><button id="auto" class="small" type="button">自动</button><button id="new-topic" class="small" type="button" title="新建主题">+</button></div>
+        <form id="create-form" class="create" hidden><input id="topic-title" required maxlength="100" placeholder="主题名称"><button class="small" type="submit">创建</button></form>
+        <div id="topics" class="scroll" aria-live="polite"></div>
+      </section>
+      <footer><span id="status">准备就绪</span><span class="spacer"></span><label for="frequency">整理</label><select id="frequency"><option value="1">每轮</option><option value="2">2 轮</option><option value="3">3 轮</option><option value="5">5 轮</option><option value="custom">自定义</option></select></footer>
+    </section>
+  </div>
+  <script>
+    const pending=new Map(); let nextId=1; let state={config:{},topics:[],summary:{},usage:{sessions:[]}}; let closeTimer;
+    const $=(id)=>document.getElementById(id);
+    const esc=(value)=>String(value??"").replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const number=(value)=>Number(value||0).toLocaleString("zh-CN");
+    const money=(value)=>value==null?"--":`$${Number(value).toFixed(4)}`;
+    const signedMoney=(value)=>value==null?"--":`${Number(value)>=0?"+":"-"}$${Math.abs(Number(value)).toFixed(4)}`;
+    const seconds=(value)=>{if(value==null)return "--";const amount=Number(value)/1000;return `${amount.toFixed(amount<10?2:amount<100?1:0)} 秒`;};
+    const stageLabel=(index)=>Number(index)>0?`第 ${Number(index)} 次压缩后`:"压缩前";
+    const percent=(value)=>value==null?"--":`${Number(value).toFixed(1)}%`;
+    const costProfile=(item)=>{
+      const count=Number(item.turn_cost_request_count||item.turn_request_count||0);
+      const epochs=Array.isArray(item.epoch_summaries)?item.epoch_summaries:[];
+      if(!count&&!epochs.length)return "";
+      const label=stageLabel(item.current_epoch_index);
+      const progress=item.stage_progress_label?` · ${esc(item.stage_progress_label)}`:"";
+      if(item.cost_profile_status==="ready"||item.cost_profile_status==="partial_history"){
+        const partial=item.cost_profile_status==="partial_history";
+        const comparison=partial?`压缩前无服务端记录 · 最早记录 ${esc(item.reference_epoch_label)} ${money(item.reference_avg_cost)} → ${esc(label)} ${money(item.current_epoch_avg_cost)} · ${signedMoney(item.reference_epoch_extra_avg_cost)}/次`:`压缩前 ${money(item.baseline_avg_cost)} → ${esc(label)} ${money(item.current_epoch_avg_cost)} · ${signedMoney(item.current_epoch_extra_avg_cost)}/次`;
+        return `<span class="cost-line"><strong>本轮 ${count} 次 · ${money(item.turn_total_cost)}</strong> · 命中 ${percent(item.turn_cache_hit_percent)} · 首字 ${seconds(item.turn_avg_first_token_ms)} · 耗时 ${seconds(item.turn_total_duration_ms||item.turn_avg_duration_ms)}</span><span class="cost-line">${esc(label)} · 合计 ${money(item.current_epoch_total_cost)} / ${number(item.current_epoch_request_count)} 次 · 平均 ${money(item.current_epoch_avg_cost)} · 命中 ${percent(item.current_epoch_cache_hit_percent)}</span><span class="cost-line">${comparison}${progress}</span>`;
+      }
+      const avg=item.turn_avg_window_percent==null?"":` · 平均占用 ${Number(item.turn_avg_window_percent).toFixed(1)}%`;
+      const cache=item.turn_cache_hit_percent==null?"":` · 命中 ${Number(item.turn_cache_hit_percent).toFixed(1)}%`;
+      const baseline=epochs[0];
+      const current=epochs.find((epoch)=>Number(epoch.epoch_index)===Number(item.current_epoch_index))||epochs.at(-1);
+      const stageCache=item.current_epoch_cache_hit_percent??current?.cache_hit_percent;
+      const stageAvg=item.current_epoch_avg_window_percent??current?.avg_window_percent;
+      const stages=current?`<span class="cost-line">${esc(current.label||label)} · ${number(item.current_epoch_request_count||current.request_count)} 次 · 平均占用 ${stageAvg==null?"--":Number(stageAvg).toFixed(1)+"%"} · 命中 ${percent(stageCache)}${progress}</span>`:"";
+      const baselineLine=baseline&&current&&baseline!==current?`<span class="cost-line">${esc(baseline.label)} ${number(baseline.request_count)} 次 → ${esc(current.label)} ${number(current.request_count)} 次 · 费用待服务端</span>`:"";
+      return `<span class="cost-line"><strong>本轮 ${count} 次</strong>${avg}${cache} · 费用待服务端</span>${stages}${baselineLine}`;
+    };
+    const epochHistory=(item)=>{const epochs=Array.isArray(item.epoch_summaries)?item.epoch_summaries:[];return epochs.map((epoch)=>epoch.avg_cost!=null?`<div class="epoch"><div class="epoch-main"><strong>${esc(epoch.label||stageLabel(epoch.epoch_index))} · ${number(epoch.request_count)} 次</strong><span>${money(epoch.total_cost)} 合计</span></div><div class="epoch-meta">平均 ${money(epoch.avg_cost)} / 次 · 上下文 ${money(epoch.avg_context_cost)} · 命中 ${percent(epoch.cache_hit_percent)}</div><div class="epoch-meta">首字 ${seconds(epoch.avg_first_token_ms)} · 耗时 ${seconds(epoch.avg_duration_ms)} · ${esc(epoch.configuration||"配置未知")}</div></div>`:`<div class="epoch"><div class="epoch-main"><strong>${esc(epoch.label||stageLabel(epoch.epoch_index))} · ${number(epoch.request_count)} 次</strong><span>平均输入 ${number(epoch.avg_context_tokens)} tokens</span></div><div class="epoch-meta">平均占用 ${epoch.avg_window_percent==null?"--":Number(epoch.avg_window_percent).toFixed(1)+"%"} · 命中 ${percent(epoch.cache_hit_percent)}</div><div class="epoch-meta">${esc(epoch.configuration||"配置未知")} · 本地记录</div></div>`).join("");};
+    function request(method,params){const id=nextId++;parent.postMessage({jsonrpc:"2.0",id,method,params},"*");return new Promise((resolve,reject)=>pending.set(id,{resolve,reject}));}
+    function callTool(name,args={}){return request("tools/call",{name,arguments:args}).then((result)=>result?.structuredContent||result);}
+    function notifySize(height){parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:{height}},"*");}
+    function setOpen(open){$("panel").hidden=!open;$("trigger").hidden=open;$("trigger").setAttribute("aria-expanded",String(open));notifySize(open?Math.min(480,document.body.scrollHeight):44);if(open)resetTimer();}
+    function resetTimer(){clearTimeout(closeTimer);closeTimer=setTimeout(()=>{if(!document.activeElement?.matches("input,select"))setOpen(false);},15000);}
+    function selected(){return state.topics.find((topic)=>topic.id===state.config.sticky_topic_id);}
+    function renderUsage(){
+      const usage=state.usage||{sessions:[]}; const sessions=state.active_sessions||usage.sessions||[]; const latest=sessions[0];
+      $("trigger").className=`trigger ${latest?.level||"normal"}`; $("current").textContent=latest?`窗口 ${latest.window_slot||latest.session_id?.slice(-6)||""}`:"Context Tree";
+      $("sync").textContent=usage.mode==="real"?"服务端真实记录":"本地估算";
+      $("usage-note").className=`mode-note ${usage.error?"error":""}`; $("usage-note").textContent=usage.error?`${usage.error}，当前显示本地估算`:usage.mode==="real"?`已连接 ${usage.connection?.server_url||"用量服务"}`:"未配置 API Key，当前显示本地估算";
+      $("sessions").innerHTML=sessions.length?sessions.map((item)=>{const profile=costProfile(item);const epochs=epochHistory(item);return `<article class="session ${esc(item.level)}" data-session="${esc(item.usage_session_id||item.session_id)}"><div class="session-head"><span class="state-dot"></span><span class="session-name">${esc(`${item.window_slot?`窗口 ${item.window_slot} · `:""}${item.session_title||item.thread_id||item.topic_title||item.session_id}`)}</span><span class="percent">${Number(item.percent||0).toFixed(1)}%</span></div><div class="metrics"><span>窗口占用<b>${number(item.context_tokens)} / ${number(item.capacity_tokens||usage.capacity_tokens)}</b></span><span>首字<b>${item.first_token_ms==null?"--":seconds(item.first_token_ms)}</b></span><span>已压缩<b>${number(item.compaction_count)} 次</b></span></div>${profile?`<div class="cost-profile">${profile}</div>`:""}${item.attention_text?`<div class="attention">${esc(item.attention_text)}</div>`:""}<div class="requests" data-epochs="${epochs?"1":"0"}" hidden>${epochs}</div></article>`;}).join(""):`<div class="empty">当前没有正在处理的会话</div>`;
+      [...$("sessions").querySelectorAll(".session")].forEach((card)=>card.onclick=async()=>{resetTimer();const box=card.querySelector(".requests");if(!box.hidden){box.hidden=true;return;}if(box.dataset.epochs==="1"){box.hidden=false;notifySize(Math.min(480,document.body.scrollHeight));return;}if(!box.dataset.loaded){box.innerHTML="<div class='request'>正在读取最近请求...</div>";box.hidden=false;try{const value=await callTool("context_tree_usage_requests",{session_id:card.dataset.session});const rows=value.requests||[];box.innerHTML=rows.length?rows.map((row)=>`<div class="request"><span>${esc(row.model)} · ${number(row.context_tokens)} tokens</span><span>${row.first_token_ms==null?"--":seconds(row.first_token_ms)} · ${money(row.cost)}</span></div>`).join(""):"<div class='request'>没有请求记录</div>";box.dataset.loaded="1";}catch(error){box.innerHTML=`<div class="request">${esc(error.message||String(error))}</div>`;}}else box.hidden=false;notifySize(Math.min(480,document.body.scrollHeight));});
+    }
+    function renderTopics(){const current=selected();const count=Number(state.summary?.pending_count||0);$("badge").hidden=!count;$("badge").textContent=count>99?"99+":String(count);const every=Number(state.config.consolidate_every||3);const standard=[1,2,3,5].includes(every);$("frequency").value=standard?String(every):"custom";$("frequency").querySelector("option[value=custom]").textContent=standard?"自定义":`${every} 轮`;const query=$("search").value.trim().toLowerCase();const topics=state.topics.filter((topic)=>`${topic.title} ${topic.summary}`.toLowerCase().includes(query));$("topics").innerHTML=topics.length?topics.map((topic)=>`<div class="topic ${topic.id===current?.id?"selected":""}" data-topic="${esc(topic.id)}"><span class="state-dot"></span><div class="topic-text"><strong>${esc(topic.title)}</strong><small>${esc(topic.current_state||topic.summary||"尚无状态快照")}</small></div>${topic.pending_count?`<span class="pending">${topic.pending_count}</span>`:"<span></span>"}<button class="small" type="button" data-graph title="打开完整图谱">&#8599;</button></div>`).join(""):"<div class='empty'>还没有匹配的主题</div>";[...$("topics").querySelectorAll(".topic")].forEach((row)=>row.onclick=async(event)=>{resetTimer();try{if(event.target.closest("[data-graph]")){await callTool("context_tree_open_graph",{topic_id:row.dataset.topic});return;}update(await callTool("context_tree_set_routing",{mode:"sticky",topic_id:row.dataset.topic,every}));}catch(error){showError(error);}});}
+    function render(){renderUsage();renderTopics();notifySize($("panel").hidden?44:Math.min(480,document.body.scrollHeight));}
+    function update(value){if(value&&value.config){state=value;render();}}
+    function showError(error){$("status").textContent=error?.message||String(error);$("status").style.color="var(--red)";}
+    addEventListener("message",(event)=>{if(event.source!==parent)return;const message=event.data;if(!message||message.jsonrpc!=="2.0")return;if(message.id!==undefined&&pending.has(message.id)){const item=pending.get(message.id);pending.delete(message.id);message.error?item.reject(message.error):item.resolve(message.result);return;}if(message.method==="ui/notifications/tool-result")update(message.params?.structuredContent);},{passive:true});
+    $("trigger").onclick=()=>setOpen(true);$("close").onclick=()=>setOpen(false);$("panel").onpointermove=resetTimer;$("settings").onclick=()=>callTool("context_tree_open_settings").catch(showError);$("search").oninput=renderTopics;
+    document.querySelectorAll(".tab").forEach((button)=>button.onclick=()=>{document.querySelectorAll(".tab").forEach((item)=>item.classList.toggle("active",item===button));$("usage-view").hidden=button.dataset.tab!=="usage";$("topics-view").hidden=button.dataset.tab!=="topics";resetTimer();notifySize(Math.min(480,document.body.scrollHeight));});
+    $("auto").onclick=async()=>{try{update(await callTool("context_tree_set_routing",{mode:"auto",every:state.config.consolidate_every||3}));}catch(error){showError(error);}};$("new-topic").onclick=()=>{$("create-form").hidden=!$("create-form").hidden;if(!$("create-form").hidden)$("topic-title").focus();resetTimer();};
+    $("create-form").onsubmit=async(event)=>{event.preventDefault();const title=$("topic-title").value.trim();if(!title)return;try{update(await callTool("context_tree_create_topic",{title,summary:"",select:true}));$("topic-title").value="";$("create-form").hidden=true;}catch(error){showError(error);}};
+    $("frequency").onchange=async()=>{let every=$("frequency").value;if(every==="custom")every=prompt("输入整理轮数（1-50）",String(state.config.consolidate_every||3));every=Number(every);if(!Number.isInteger(every)||every<1||every>50){render();return;}try{update(await callTool("context_tree_set_routing",{mode:state.config.routing_mode||"auto",topic_id:state.config.sticky_topic_id||undefined,every}));}catch(error){showError(error);}};
+    request("ui/initialize",{protocolVersion:"2025-06-18",clientInfo:{name:"context-tree-widget",version:"0.7.1"},capabilities:{}}).catch(()=>{});notifySize(44);
+  </script>
+</body>
+</html>

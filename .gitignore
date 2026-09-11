@@ -1,0 +1,47 @@
+# Local Context Tree state and credentials
+.context-tree/
+.context-tree-dev/
+.verify-store/
+.visual-store/
+**/.context-tree/
+*.db
+*.db-*
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+credentials.json
+events.jsonl
+*.jsonl
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.tests-artifacts/
+**/tests/artifacts/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Local configuration and deployment output
+.env
+.env.*
+!.env.example
+*.log
+*.bak
+*.tmp
+
+# Operating-system/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
+dist/
+build/
+target/

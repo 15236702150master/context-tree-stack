@@ -1,0 +1,21 @@
+[Unit]
+Description=Context Tree usage sidecar
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/context-tree/context-tree.env
+Environment=USAGE_SIDECAR_HOST=127.0.0.1
+Environment=USAGE_SIDECAR_PORT=8098
+ExecStart=/usr/bin/python3 /opt/context-tree-usage-sidecar/server.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/context-tree
+
+[Install]
+WantedBy=multi-user.target

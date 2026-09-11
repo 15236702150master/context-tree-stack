@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "context-tree": {
+      "command": "python",
+      "args": ["${PLUGIN_ROOT}/scripts/context_tree_mcp.py"],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}
