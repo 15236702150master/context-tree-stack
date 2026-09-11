@@ -19,6 +19,7 @@ from context_tree_float import codex_desktop_running
 ROOT = Path(__file__).resolve().parent.parent
 STORE = ct.store_dir()
 _MUTEX_HANDLE: Any = None
+WINDOWS_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
 
 
 def acquire_single_instance() -> bool:
@@ -38,7 +39,7 @@ def launch_float() -> subprocess.Popen[Any]:
         "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
     }
     if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        kwargs["creationflags"] = WINDOWS_CREATE_NO_WINDOW
     return subprocess.Popen(command, **kwargs)
 
 

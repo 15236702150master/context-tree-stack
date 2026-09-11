@@ -403,7 +403,8 @@ class ContextTreeTests(unittest.TestCase):
     def test_windows_background_codex_run_has_no_console_window(self) -> None:
         with mock.patch.object(ct.os, "name", "nt"):
             options = ct.no_window_run_kwargs()
-        self.assertEqual(options["creationflags"], subprocess.CREATE_NO_WINDOW)
+        expected = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        self.assertEqual(options["creationflags"], expected)
 
     def test_ai_output_schemas_require_every_declared_property(self) -> None:
         def assert_strict(value: object) -> None:

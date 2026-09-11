@@ -25,6 +25,10 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
 
+WINDOWS_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+WINDOWS_DETACHED_PROCESS = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+
+
 SCHEMA_VERSION = 4
 DEFAULT_CONFIG = {
     "routing_mode": "auto",
@@ -1561,7 +1565,7 @@ def launch_float_monitor(store: Path) -> None:
         "stderr": subprocess.DEVNULL,
     }
     if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        kwargs["creationflags"] = WINDOWS_CREATE_NO_WINDOW
     try:
         subprocess.Popen([str(executable), str(script), "--follow-codex"], **kwargs)
     except OSError:
@@ -2624,7 +2628,7 @@ def codex_exec_command() -> list[str]:
 
 
 def no_window_run_kwargs() -> dict[str, Any]:
-    return {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+    return {"creationflags": WINDOWS_CREATE_NO_WINDOW} if os.name == "nt" else {}
 
 
 def batch_output_schema() -> dict[str, Any]:
@@ -3074,7 +3078,7 @@ def launch_batch_worker(store: Path, job_id: str) -> None:
         "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
     }
     if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+        kwargs["creationflags"] = WINDOWS_CREATE_NO_WINDOW | WINDOWS_DETACHED_PROCESS
     else:
         kwargs["start_new_session"] = True
     subprocess.Popen(command, **kwargs)
@@ -3180,7 +3184,7 @@ def launch_backfill_worker(store: Path, job_id: str) -> None:
         "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
     }
     if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+        kwargs["creationflags"] = WINDOWS_CREATE_NO_WINDOW | WINDOWS_DETACHED_PROCESS
     else:
         kwargs["start_new_session"] = True
     subprocess.Popen(command, **kwargs)

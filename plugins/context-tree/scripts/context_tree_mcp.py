@@ -15,6 +15,8 @@ import context_tree as ct
 
 
 SERVER_VERSION = "0.7.1"
+WINDOWS_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+WINDOWS_DETACHED_PROCESS = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
 WIDGET_URI = "ui://context-tree/widget-v1.html"
 ROOT = Path(__file__).resolve().parent.parent
 WIDGET_HTML = (ROOT / "assets" / "widget.html").read_text(encoding="utf-8")
@@ -217,7 +219,7 @@ def open_graph(arguments: dict[str, Any]) -> dict[str, Any]:
         "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
     }
     if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+        kwargs["creationflags"] = WINDOWS_CREATE_NO_WINDOW | WINDOWS_DETACHED_PROCESS
     else:
         kwargs["start_new_session"] = True
     subprocess.Popen(command, **kwargs)
@@ -234,7 +236,7 @@ def open_settings() -> dict[str, Any]:
         "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
     }
     if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+        kwargs["creationflags"] = WINDOWS_CREATE_NO_WINDOW | WINDOWS_DETACHED_PROCESS
     else:
         kwargs["start_new_session"] = True
     subprocess.Popen(command, **kwargs)
